@@ -3,18 +3,41 @@ import pandas as pd
 from datetime import date, timedelta
 from streamlit_gsheets import GSheetsConnection
 
-# --- Configuration ---
+# --- APP CONFIGURATION ---
 st.set_page_config(page_title="Home Manager", page_icon="🏠")
+
+# --- SECURITY SETTINGS ---
+# 🔒 CHANGE THIS to your desired password
+APP_PASSWORD = "penny3200"
+
+# Check if password is correct via URL or Input
+auth_success = False
+
+# 1. Check URL (e.g. ?password=change_me_123)
+if st.query_params.get("password") == APP_PASSWORD:
+    auth_success = True
+else:
+    # 2. Check manual input
+    password_input = st.text_input("Enter Password to Access", type="password")
+    if password_input == APP_PASSWORD:
+        auth_success = True
+
+# Stop execution if password is wrong
+if not auth_success:
+    st.stop()
+
+# ==========================================
+#     AUTHENTICATED APP STARTS HERE
+# ==========================================
 
 # Connect to Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- Helper Functions ---
 def get_data():
-    # Read data with TTL=0 to ensure we always get fresh data (no caching)
     try:
         df = conn.read(ttl=0)
-        # Ensure ID column is handled as numeric or string consistently
+        # Handle empty or new sheet structure
         if 'ID' not in df.columns:
             return pd.DataFrame(columns=['ID', 'Task', 'Due Date', 'Recurrence', 'Notes'])
         return df
@@ -25,7 +48,7 @@ def save_data(df):
     conn.update(data=df)
 
 # --- App Layout ---
-st.title("🏠 Household Task Manager (Cloud)")
+st.title("🏠 Household Task Manager")
 
 # --- Sidebar: Add New Task ---
 with st.sidebar:
@@ -40,7 +63,7 @@ with st.sidebar:
         if submitted and task_name:
             df = get_data()
             
-            # Generate a simple new ID
+            # Generate new ID
             new_id = 1 if df.empty else df['ID'].max() + 1
             
             # Create new row
@@ -121,7 +144,6 @@ else:
         to_delete = st.selectbox("Select task to delete", task_list, index=None)
         
         if to_delete and st.button("🗑️ Delete Task"):
-            # Filter out the task to delete
             df = df[df['Task'] != to_delete]
             save_data(df)
             st.success("Deleted!")
